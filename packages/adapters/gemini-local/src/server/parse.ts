@@ -7,7 +7,7 @@ function collectMessageText(message: unknown): string[] {
   }
 
   const record = parseObject(message);
-  const direct = asString(record.text, "").trim();
+  const direct = (asString(record.text, "") || (typeof record.content === "string" ? record.content : "")).trim();
   const lines: string[] = direct ? [direct] : [];
   const content = Array.isArray(record.content) ? record.content : [];
 
@@ -64,7 +64,7 @@ function accumulateUsage(
   );
   target.cachedInputTokens += asNumber(
     source.cached_input_tokens,
-    asNumber(source.cachedInputTokens, asNumber(source.cachedContentTokenCount, 0)),
+    asNumber(source.cachedInputTokens, asNumber(source.cachedContentTokenCount, asNumber(source.cached, 0))),
   );
   target.outputTokens += asNumber(
     source.output_tokens,
@@ -97,9 +97,11 @@ export function parseGeminiJsonl(stdout: string) {
 
     const type = asString(event.type, "").trim();
 
-    if (type === "assistant") {
-      messages.push(...collectMessageText(event.message));
-      const messageObj = parseObject(event.message);
+    if (type === "assistant" || (type === "message" && asString(event.role, "").trim() === "assistant")) {
+      const messageBody = type === "assistant" ? event.message : event;
+      messages.push(...collectMessageText(messageBody));
+
+      const messageObj = parseObject(messageBody);
       const content = Array.isArray(messageObj.content) ? messageObj.content : [];
       for (const partRaw of content) {
         const part = parseObject(partRaw);
@@ -123,7 +125,7 @@ export function parseGeminiJsonl(stdout: string) {
 
     if (type === "result") {
       resultEvent = event;
-      accumulateUsage(usage, event.usage ?? event.usageMetadata);
+      accumulateUsage(usage, event.stats ?? event.usage ?? event.usageMetadata);
       const resultText =
         asString(event.result, "").trim() ||
         asString(event.text, "").trim() ||
@@ -160,8 +162,8 @@ export function parseGeminiJsonl(stdout: string) {
       continue;
     }
 
-    if (type === "step_finish" || event.usage || event.usageMetadata) {
-      accumulateUsage(usage, event.usage ?? event.usageMetadata);
+    if (type === "step_finish" || event.usage || event.usageMetadata || event.stats) {
+      accumulateUsage(usage, event.stats ?? event.usage ?? event.usageMetadata);
       costUsd = asNumber(event.total_cost_usd, asNumber(event.cost_usd, asNumber(event.cost, costUsd ?? 0))) || costUsd;
       continue;
     }
