@@ -142,7 +142,9 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   );
   const command = asString(config.command, "gemini");
   const model = asString(config.model, DEFAULT_GEMINI_LOCAL_MODEL).trim();
-  const sandbox = asBoolean(config.sandbox, false);
+  const sandbox = config.sandbox !== undefined
+    ? asBoolean(config.sandbox, false)
+    : !asBoolean(config.dangerouslyBypassSandbox, false);
 
   const workspaceContext = parseObject(context.paperclipWorkspace);
   const workspaceCwd = asString(workspaceContext.cwd, "");

@@ -2,6 +2,8 @@ import type { AdapterConfigFieldsProps } from "../types";
 import {
   DraftInput,
   Field,
+  ToggleField,
+  help,
 } from "../../components/agent-config-primitives";
 import { ChoosePathButton } from "../../components/PathInstructionsModal";
 
@@ -11,6 +13,7 @@ const instructionsFileHint =
   "Absolute path to a markdown file (e.g. AGENTS.md) that defines this agent's behavior. Prepended to the Gemini prompt at runtime.";
 
 export function GeminiLocalConfigFields({
+  mode,
   isCreate,
   values,
   set,
@@ -19,9 +22,23 @@ export function GeminiLocalConfigFields({
   mark,
   hideInstructionsFile,
 }: AdapterConfigFieldsProps) {
-  if (hideInstructionsFile) return null;
+  const sandbox = isCreate
+    ? !values!.dangerouslyBypassSandbox
+    : eff("adapterConfig", "sandbox", config.sandbox !== false);
+
   return (
     <>
+      <ToggleField
+        label="Bypass sandbox"
+        hint={help.dangerouslyBypassSandbox}
+        checked={!sandbox}
+        onChange={(v) =>
+          isCreate
+            ? set!({ dangerouslyBypassSandbox: v })
+            : mark("adapterConfig", "sandbox", !v)
+        }
+      />
+
       <Field label="Agent instructions file" hint={instructionsFileHint}>
         <div className="flex items-center gap-2">
           <DraftInput
