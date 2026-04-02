@@ -1,6 +1,7 @@
 FROM node:lts-trixie-slim AS base
 ARG USER_UID=1000
 ARG USER_GID=1000
+ARG DOCKER_GID=997
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates gosu curl git wget ripgrep python3 gnupg \
   && mkdir -p -m 755 /etc/apt/keyrings \
@@ -13,10 +14,10 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends gh \
   && curl -fsSL https://download.docker.com/linux/debian/gpg -o /tmp/docker.gpg.asc \
   && ( actual_fingerprint="$(gpg --batch --show-keys --with-colons /tmp/docker.gpg.asc | awk -F: '$1 == "fpr" { print toupper($10); exit }')" && \
-       if [ "$actual_fingerprint" != "9DC858229FC7DD38854AE2D88D81803C0EBFCD88" ]; then \
-         echo "ERROR: Docker apt key fingerprint mismatch (expected 9DC858229FC7DD38854AE2D88D81803C0EBFCD88, got ${actual_fingerprint:-<empty>})" >&2; \
-         exit 1; \
-       fi ) \
+  if [ "$actual_fingerprint" != "9DC858229FC7DD38854AE2D88D81803C0EBFCD88" ]; then \
+  echo "ERROR: Docker apt key fingerprint mismatch (expected 9DC858229FC7DD38854AE2D88D81803C0EBFCD88, got ${actual_fingerprint:-<empty>})" >&2; \
+  exit 1; \
+  fi ) \
   && gpg --dearmor -o /etc/apt/keyrings/docker.gpg /tmp/docker.gpg.asc \
   && rm -f /tmp/docker.gpg.asc \
   && chmod a+r /etc/apt/keyrings/docker.gpg \
@@ -28,7 +29,9 @@ RUN apt-get update \
 
 
 # Modify the existing node user/group to have the specified UID/GID to match host user
-RUN usermod -u $USER_UID --non-unique node \
+RUN groupadd -g $DOCKER_GID docker || true \
+  && usermod -aG docker node \
+  && usermod -u $USER_UID --non-unique node \
   && groupmod -g $USER_GID --non-unique node \
   && usermod -g $USER_GID -d /paperclip node
 
